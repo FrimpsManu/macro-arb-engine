@@ -1,5 +1,3 @@
-# src/data_loader.py
-
 import pandas as pd
 import yfinance as yf
 from fredapi import Fred
@@ -18,6 +16,7 @@ macro_series = {
 }
 
 asset_tickers = ['SPY', 'EWG', 'FXE', 'EURUSD=X']  # US ETF, Germany ETF, Euro ETF, EUR/USD FX
+start_date = "2005-01-01"  # Unified start date
 
 # ========== FUNCTIONS ========== #
 
@@ -25,10 +24,11 @@ def fetch_macro_data():
     print("Fetching macroeconomic data from FRED...")
     macro_data = {}
     for name, code in macro_series.items():
-        macro_data[name] = fred.get_series(code)
+        series = fred.get_series(code)
+        macro_data[name] = series.loc[start_date:]  # Filter to match asset price range
     df = pd.DataFrame(macro_data)
     df.index.name = "Date"
-    df = df.resample('ME').ffill()
+    df = df.resample('ME').ffill()  # Monthly end
     df.to_csv("data/macro_data.csv")
     print("Saved macro data to data/macro_data.csv")
 
@@ -40,19 +40,31 @@ def fetch_asset_prices():
     for ticker in asset_tickers:
         try:
             print(f"Fetching: {ticker}")
-            df = yf.Ticker(ticker).history(start="2010-01-01", interval="1d")['Close']
-            df = df.resample("ME").ffill()
-            all_data[ticker] = df.rename(ticker)
+            df = yf.download(ticker, start=start_date, end="2024-12-31", interval="1d", auto_adjust=True)
+            if df.empty:
+                print(f"No data found for {ticker}, skipping.")
+                continue
+
+            df = df[['Close']].resample("ME").ffill()
+            df.columns = [ticker]  # Rename column to ticker name
+            all_data[ticker] = df
+
+            print(f"✅ {ticker} data range: {df.index.min().date()} to {df.index.max().date()}")
+
         except Exception as e:
-            print(f"Failed to fetch {ticker}: {e}")
+            print(f"❌ Failed to fetch {ticker}: {e}")
+
+    if not all_data:
+        raise ValueError("No valid asset data retrieved. Please check tickers or date range.")
 
     prices_df = pd.concat(all_data.values(), axis=1)
+    prices_df.index.name = "Date"
     prices_df.to_csv("data/asset_prices.csv")
-    print("Saved asset prices to data/asset_prices.csv")
+    print("✅ Saved asset prices to data/asset_prices.csv")
+
 
 # ========== MAIN EXECUTION ========== #
 if __name__ == "__main__":
     os.makedirs("data", exist_ok=True)
     fetch_macro_data()
     fetch_asset_prices()
- 
