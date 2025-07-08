@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load signals and prices
-signals = pd.read_csv("data/signals.csv", index_col="Date", parse_dates=True)
+signals = pd.read_csv("data/signals_refined.csv", index_col="Date", parse_dates=True)
 prices = pd.read_csv("data/asset_prices.csv", index_col="Date", parse_dates=True)
 
 # Use EWG as traded asset and macro signal column (e.g., GERMANY_3M_RATE)
